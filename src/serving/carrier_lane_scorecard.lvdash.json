@@ -1,0 +1,1196 @@
+{
+  "datasets": [
+    {
+      "name": "ds_scorecard",
+      "displayName": "Carrier lane scorecard",
+      "queryLines": [
+        "SELECT g.carrier_dot,\n",
+        "       coalesce(g.legal_name, concat('Unverified DOT ', g.carrier_dot)) AS carrier,\n",
+        "       coalesce(c.authority_status, 'NOT IN FMCSA') AS authority_status,\n",
+        "       c.status_date AS authority_status_date,\n",
+        "       g.origin_state, g.dest_state,\n",
+        "       concat(g.origin_state, ' → ', g.dest_state) AS lane,\n",
+        "       g.load_count, g.total_revenue, g.total_carrier_cost, g.gross_margin, g.margin_pct,\n",
+        "       g.unauthorized_load_count, g.unverified_load_count,\n",
+        "       CASE WHEN g.unverified_load_count > 0 THEN 'Unverified carrier'\n",
+        "            WHEN g.unauthorized_load_count > 0 THEN 'Has unauthorized loads'\n",
+        "            ELSE 'Authorized' END AS compliance\n",
+        "FROM gold_carrier_lane_scorecard g\n",
+        "LEFT JOIN silver_fmcsa_carriers c ON g.carrier_dot = c.dot_number\n"
+      ],
+      "columns": [
+        {
+          "displayName": "Loads",
+          "description": "Delivered loads picked up in October 2026 (Eastern)",
+          "expression": "SUM(`load_count`)"
+        },
+        {
+          "displayName": "Revenue",
+          "description": "Customer rate + accessorials",
+          "expression": "SUM(`total_revenue`)"
+        },
+        {
+          "displayName": "Carrier Cost",
+          "description": "Amount paid to carriers",
+          "expression": "SUM(`total_carrier_cost`)"
+        },
+        {
+          "displayName": "Gross Margin",
+          "description": "Revenue - carrier cost",
+          "expression": "SUM(`gross_margin`)"
+        },
+        {
+          "displayName": "Margin %",
+          "description": "Gross margin / revenue (ratio of sums)",
+          "expression": "SUM(`gross_margin`) / SUM(`total_revenue`)"
+        },
+        {
+          "displayName": "Unauthorized Loads",
+          "description": "Hauled while the carrier's REVOKED/INACTIVE status was already in effect",
+          "expression": "SUM(`unauthorized_load_count`)"
+        },
+        {
+          "displayName": "Unverified Loads",
+          "description": "Carrier DOT not found in the FMCSA census",
+          "expression": "SUM(`unverified_load_count`)"
+        }
+      ]
+    },
+    {
+      "name": "ds_unauthorized",
+      "displayName": "Carrier lanes with unauthorized loads",
+      "queryLines": [
+        "SELECT g.carrier_dot,\n",
+        "       coalesce(g.legal_name, concat('Unverified DOT ', g.carrier_dot)) AS carrier,\n",
+        "       coalesce(c.authority_status, 'NOT IN FMCSA') AS authority_status,\n",
+        "       c.status_date AS authority_status_date,\n",
+        "       g.origin_state, g.dest_state,\n",
+        "       concat(g.origin_state, ' → ', g.dest_state) AS lane,\n",
+        "       g.load_count, g.total_revenue, g.total_carrier_cost, g.gross_margin, g.margin_pct,\n",
+        "       g.unauthorized_load_count, g.unverified_load_count,\n",
+        "       CASE WHEN g.unverified_load_count > 0 THEN 'Unverified carrier'\n",
+        "            WHEN g.unauthorized_load_count > 0 THEN 'Has unauthorized loads'\n",
+        "            ELSE 'Authorized' END AS compliance\n",
+        "FROM gold_carrier_lane_scorecard g\n",
+        "LEFT JOIN silver_fmcsa_carriers c ON g.carrier_dot = c.dot_number\n",
+        "WHERE g.unauthorized_load_count > 0\n"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "overview",
+      "displayName": "Scorecard",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Carrier Lane Scorecard — October 2026\n"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "subtitle",
+            "multilineTextboxSpec": {
+              "lines": [
+                "Delivered loads with an October 2026 pickup date in **US Eastern time**, per carrier and lane (origin state → destination state). Source: `gold_carrier_lane_scorecard`, rebuilt daily and marked `certified` only when all 15 data-quality checks pass. **Unauthorized** = the carrier's REVOKED/INACTIVE status took effect on or before the pickup date. **Unverified** = the carrier's DOT isn't in the FMCSA census.\n"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-loads",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_scorecard",
+                  "fields": [
+                    {
+                      "name": "measure(Loads)",
+                      "expression": "MEASURE(`Loads`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Loads)",
+                  "displayName": "Loads"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Loads"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 2,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-revenue",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_scorecard",
+                  "fields": [
+                    {
+                      "name": "measure(Revenue)",
+                      "expression": "MEASURE(`Revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Revenue)",
+                  "displayName": "Revenue",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Revenue"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 3,
+            "width": 2,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-margin",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_scorecard",
+                  "fields": [
+                    {
+                      "name": "measure(Gross Margin)",
+                      "expression": "MEASURE(`Gross Margin`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Gross Margin)",
+                  "displayName": "Gross margin",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Gross margin"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 3,
+            "width": 2,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-margin-pct",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_scorecard",
+                  "fields": [
+                    {
+                      "name": "measure(Margin %)",
+                      "expression": "MEASURE(`Margin %`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Margin %)",
+                  "displayName": "Margin %",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Margin %"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 2,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-unauthorized",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_scorecard",
+                  "fields": [
+                    {
+                      "name": "measure(Unauthorized Loads)",
+                      "expression": "MEASURE(`Unauthorized Loads`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Unauthorized Loads)",
+                  "displayName": "Unauthorized loads"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Unauthorized loads"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 3,
+            "width": 2,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-unverified",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_scorecard",
+                  "fields": [
+                    {
+                      "name": "measure(Unverified Loads)",
+                      "expression": "MEASURE(`Unverified Loads`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Unverified Loads)",
+                  "displayName": "Unverified loads"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Unverified loads"
+              }
+            }
+          },
+          "position": {
+            "x": 10,
+            "y": 3,
+            "width": 2,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "margin-by-lane",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_scorecard",
+                  "fields": [
+                    {
+                      "name": "lane",
+                      "expression": "`lane`"
+                    },
+                    {
+                      "name": "compliance",
+                      "expression": "`compliance`"
+                    },
+                    {
+                      "name": "sum(gross_margin)",
+                      "expression": "SUM(`gross_margin`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "sum(gross_margin)",
+                  "displayName": "Gross margin",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "lane",
+                  "displayName": "Lane",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "value"
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "compliance",
+                  "displayName": "Carrier compliance",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "Authorized",
+                        "color": "#009E73"
+                      },
+                      {
+                        "value": "Has unauthorized loads",
+                        "color": "#D55E00"
+                      },
+                      {
+                        "value": "Unverified carrier",
+                        "color": "#E69F00"
+                      }
+                    ]
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Gross margin by lane",
+                "showDescription": true,
+                "description": "Colored by the compliance of the carrier-lane rows that earned it."
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 6,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "unauthorized-by-carrier",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_unauthorized",
+                  "fields": [
+                    {
+                      "name": "carrier",
+                      "expression": "`carrier`"
+                    },
+                    {
+                      "name": "authority_status",
+                      "expression": "`authority_status`"
+                    },
+                    {
+                      "name": "sum(unauthorized_load_count)",
+                      "expression": "SUM(`unauthorized_load_count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "sum(unauthorized_load_count)",
+                  "displayName": "Unauthorized loads",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "carrier",
+                  "displayName": "Carrier",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "value"
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "authority_status",
+                  "displayName": "FMCSA status",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "REVOKED",
+                        "color": "#D55E00"
+                      },
+                      {
+                        "value": "INACTIVE",
+                        "color": "#CC79A7"
+                      }
+                    ]
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Unauthorized loads by carrier",
+                "showDescription": true,
+                "description": "Loads hauled on or after the date the carrier's authority was revoked or inactivated."
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 7,
+            "width": 6,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "lane-matrix",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_scorecard",
+                  "fields": [
+                    {
+                      "name": "origin_state",
+                      "expression": "`origin_state`"
+                    },
+                    {
+                      "name": "dest_state",
+                      "expression": "`dest_state`"
+                    },
+                    {
+                      "name": "sum(load_count)",
+                      "expression": "SUM(`load_count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "heatmap",
+              "encodings": {
+                "x": {
+                  "fieldName": "dest_state",
+                  "displayName": "Destination state",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "origin_state",
+                  "displayName": "Origin state",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "color": {
+                  "fieldName": "sum(load_count)",
+                  "displayName": "Loads",
+                  "scale": {
+                    "type": "quantitative",
+                    "colorRamp": {
+                      "mode": "custom-sequential",
+                      "colors": {
+                        "start": "#E8F1FA",
+                        "end": "#0072B2"
+                      }
+                    }
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Lane matrix: loads by origin → destination"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 15,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "loads-by-fmcsa-status",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_scorecard",
+                  "fields": [
+                    {
+                      "name": "authority_status",
+                      "expression": "`authority_status`"
+                    },
+                    {
+                      "name": "measure(Loads)",
+                      "expression": "MEASURE(`Loads`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "measure(Loads)",
+                  "displayName": "Loads",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "authority_status",
+                  "displayName": "Current FMCSA status",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "ACTIVE",
+                        "color": "#009E73"
+                      },
+                      {
+                        "value": "REVOKED",
+                        "color": "#D55E00"
+                      },
+                      {
+                        "value": "INACTIVE",
+                        "color": "#CC79A7"
+                      },
+                      {
+                        "value": "NOT IN FMCSA",
+                        "color": "#E69F00"
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Loads by carrier's current FMCSA status",
+                "showDescription": true,
+                "description": "Current status, not status at pickup: a carrier revoked after the pickup was authorized when it hauled. That's why REVOKED + INACTIVE loads exceed the unauthorized count."
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 15,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "scorecard-table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_scorecard",
+                  "fields": [
+                    {
+                      "name": "carrier",
+                      "expression": "`carrier`"
+                    },
+                    {
+                      "name": "carrier_dot",
+                      "expression": "`carrier_dot`"
+                    },
+                    {
+                      "name": "authority_status",
+                      "expression": "`authority_status`"
+                    },
+                    {
+                      "name": "lane",
+                      "expression": "`lane`"
+                    },
+                    {
+                      "name": "load_count",
+                      "expression": "`load_count`"
+                    },
+                    {
+                      "name": "total_revenue",
+                      "expression": "`total_revenue`"
+                    },
+                    {
+                      "name": "total_carrier_cost",
+                      "expression": "`total_carrier_cost`"
+                    },
+                    {
+                      "name": "gross_margin",
+                      "expression": "`gross_margin`"
+                    },
+                    {
+                      "name": "margin_pct",
+                      "expression": "`margin_pct`"
+                    },
+                    {
+                      "name": "unauthorized_load_count",
+                      "expression": "`unauthorized_load_count`"
+                    },
+                    {
+                      "name": "unverified_load_count",
+                      "expression": "`unverified_load_count`"
+                    }
+                  ],
+                  "disaggregated": true,
+                  "orders": [
+                    {
+                      "direction": "DESC",
+                      "expression": "`unauthorized_load_count`"
+                    },
+                    {
+                      "direction": "DESC",
+                      "expression": "`load_count`"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "carrier",
+                    "displayName": "Carrier"
+                  },
+                  {
+                    "fieldName": "carrier_dot",
+                    "displayName": "USDOT"
+                  },
+                  {
+                    "fieldName": "authority_status",
+                    "displayName": "FMCSA status"
+                  },
+                  {
+                    "fieldName": "lane",
+                    "displayName": "Lane"
+                  },
+                  {
+                    "fieldName": "load_count",
+                    "displayName": "Loads"
+                  },
+                  {
+                    "fieldName": "total_revenue",
+                    "displayName": "Revenue",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "USD",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 2
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "total_carrier_cost",
+                    "displayName": "Carrier cost",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "USD",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 2
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "gross_margin",
+                    "displayName": "Gross margin",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "USD",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 2
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "margin_pct",
+                    "displayName": "Margin %",
+                    "format": {
+                      "type": "number-percent",
+                      "decimalPlaces": {
+                        "type": "max",
+                        "places": 1
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "unauthorized_load_count",
+                    "displayName": "Unauthorized",
+                    "style": {
+                      "type": "basic",
+                      "rules": [
+                        {
+                          "condition": {
+                            "operand": {
+                              "type": "data-value",
+                              "value": "0"
+                            },
+                            "operator": ">"
+                          },
+                          "backgroundColor": {
+                            "hex": "#F4B9A0"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "fieldName": "unverified_load_count",
+                    "displayName": "Unverified",
+                    "style": {
+                      "type": "basic",
+                      "rules": [
+                        {
+                          "condition": {
+                            "operand": {
+                              "type": "data-value",
+                              "value": "0"
+                            },
+                            "operator": ">"
+                          },
+                          "backgroundColor": {
+                            "hex": "#F7D9A0"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Carrier lane scorecard (one row per carrier × lane)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 22,
+            "width": 12,
+            "height": 9
+          }
+        }
+      ]
+    },
+    {
+      "name": "filters",
+      "displayName": "Filters",
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "filter-carrier",
+            "queries": [
+              {
+                "name": "ds_scorecard_carrier",
+                "query": {
+                  "datasetName": "ds_scorecard",
+                  "fields": [
+                    {
+                      "name": "carrier",
+                      "expression": "`carrier`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "ds_unauthorized_carrier",
+                "query": {
+                  "datasetName": "ds_unauthorized",
+                  "fields": [
+                    {
+                      "name": "carrier",
+                      "expression": "`carrier`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "carrier",
+                    "displayName": "Carrier",
+                    "queryName": "ds_scorecard_carrier"
+                  },
+                  {
+                    "fieldName": "carrier",
+                    "displayName": "Carrier",
+                    "queryName": "ds_unauthorized_carrier"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Carrier"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "filter-origin",
+            "queries": [
+              {
+                "name": "ds_scorecard_origin_state",
+                "query": {
+                  "datasetName": "ds_scorecard",
+                  "fields": [
+                    {
+                      "name": "origin_state",
+                      "expression": "`origin_state`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "ds_unauthorized_origin_state",
+                "query": {
+                  "datasetName": "ds_unauthorized",
+                  "fields": [
+                    {
+                      "name": "origin_state",
+                      "expression": "`origin_state`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "origin_state",
+                    "displayName": "Origin state",
+                    "queryName": "ds_scorecard_origin_state"
+                  },
+                  {
+                    "fieldName": "origin_state",
+                    "displayName": "Origin state",
+                    "queryName": "ds_unauthorized_origin_state"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Origin state"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "filter-dest",
+            "queries": [
+              {
+                "name": "ds_scorecard_dest_state",
+                "query": {
+                  "datasetName": "ds_scorecard",
+                  "fields": [
+                    {
+                      "name": "dest_state",
+                      "expression": "`dest_state`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "ds_unauthorized_dest_state",
+                "query": {
+                  "datasetName": "ds_unauthorized",
+                  "fields": [
+                    {
+                      "name": "dest_state",
+                      "expression": "`dest_state`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "dest_state",
+                    "displayName": "Destination state",
+                    "queryName": "ds_scorecard_dest_state"
+                  },
+                  {
+                    "fieldName": "dest_state",
+                    "displayName": "Destination state",
+                    "queryName": "ds_unauthorized_dest_state"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Destination state"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "filter-compliance",
+            "queries": [
+              {
+                "name": "ds_scorecard_compliance",
+                "query": {
+                  "datasetName": "ds_scorecard",
+                  "fields": [
+                    {
+                      "name": "compliance",
+                      "expression": "`compliance`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "ds_unauthorized_compliance",
+                "query": {
+                  "datasetName": "ds_unauthorized",
+                  "fields": [
+                    {
+                      "name": "compliance",
+                      "expression": "`compliance`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "compliance",
+                    "displayName": "Carrier compliance",
+                    "queryName": "ds_scorecard_compliance"
+                  },
+                  {
+                    "fieldName": "compliance",
+                    "displayName": "Carrier compliance",
+                    "queryName": "ds_unauthorized_compliance"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Carrier compliance"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 0,
+            "width": 3,
+            "height": 2
+          }
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#F7F9FB",
+        "dark": "#1F272D"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#11171C"
+      },
+      "widgetBorderColor": {
+        "light": "#FFFFFF",
+        "dark": "#11171C"
+      },
+      "fontColor": {
+        "light": "#11171C",
+        "dark": "#E8ECF0"
+      },
+      "selectionColor": {
+        "light": "#2272B4",
+        "dark": "#8ACAFF"
+      },
+      "visualizationColors": [
+        "#0072B2",
+        "#E69F00",
+        "#009E73",
+        "#CC79A7",
+        "#D55E00",
+        "#56B4E9",
+        "#F0E442"
+      ],
+      "widgetHeaderAlignment": "LEFT",
+      "widgetCornerRadius": 8
+    }
+  }
+}

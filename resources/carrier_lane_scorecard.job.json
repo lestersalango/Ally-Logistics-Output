@@ -1,0 +1,43 @@
+{
+  "name": "carrier_lane_scorecard",
+  "description": "Builds bronze/silver/gold for the carrier lane scorecard from /Volumes/workspace/default/interview/raw. Fails (and emails) if any data-quality check fails.",
+  "tags": {"project": "carrier_scorecard_exercise"},
+  "max_concurrent_runs": 1,
+  "queue": {"enabled": true},
+  "timeout_seconds": 1800,
+  "health": {
+    "rules": [{"metric": "RUN_DURATION_SECONDS", "op": "GREATER_THAN", "value": 600}]
+  },
+  "email_notifications": {
+    "on_failure": ["lester.salango.pro@gmail.com"],
+    "on_duration_warning_threshold_exceeded": ["lester.salango.pro@gmail.com"],
+    "no_alert_for_skipped_runs": true
+  },
+  "schedule": {
+    "quartz_cron_expression": "0 0 6 * * ?",
+    "timezone_id": "America/New_York",
+    "pause_status": "PAUSED"
+  },
+  "parameters": [
+    {"name": "catalog", "default": "workspace"},
+    {"name": "schema", "default": "default"},
+    {"name": "volume", "default": "interview"},
+    {"name": "report_month", "default": "2026-10"},
+    {"name": "reprocess_all_bronze", "default": "false"},
+    {"name": "force_dq_failure", "default": "false"}
+  ],
+  "tasks": [
+    {
+      "task_key": "build_scorecard",
+      "description": "Bronze (COPY INTO) -> silver (MERGE) -> gold -> data-quality checks.",
+      "notebook_task": {
+        "notebook_path": "/Workspace/Users/lester.salango.pro@gmail.com/carrier_lane_scorecard",
+        "source": "WORKSPACE"
+      },
+      "max_retries": 1,
+      "min_retry_interval_millis": 60000,
+      "retry_on_timeout": false,
+      "timeout_seconds": 1800
+    }
+  ]
+}
